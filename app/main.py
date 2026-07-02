@@ -1,4 +1,5 @@
 from pathlib import Path
+import asyncio
 import logging
 
 from vkbottle.bot import Bot
@@ -27,9 +28,10 @@ def main() -> None:
 
     bot = Bot(token=settings.vk_group_token)
     setup_handlers(bot, settings, repository, CaseSearchService(repository))
+    _validate_vk_access(bot)
 
     logger.info("Запускаю VK Long Poll бота")
-    bot.run_forever()
+    bot.run()
 
 
 def _auto_import_if_needed(repository: CaseRepository, xlsx_path: Path) -> None:
@@ -41,6 +43,18 @@ def _auto_import_if_needed(repository: CaseRepository, xlsx_path: Path) -> None:
 
     summary = import_cases_from_excel(xlsx_path, repository)
     logger.info("Первичный импорт завершён: %s кейсов", summary.imported_count)
+
+
+def _validate_vk_access(bot: Bot) -> None:
+    try:
+        asyncio.run(bot.api.groups.get_long_poll_server())
+    except Exception as error:
+        raise RuntimeError(
+            "VK не дал доступ к Long Poll. Проверь в управлении сообщества: "
+            "токен именно от сообщества, у токена есть права на сообщения, "
+            "сообщения сообщества включены, Long Poll API включён, "
+            "в событиях включено message_new / входящие сообщения."
+        ) from error
 
 
 if __name__ == "__main__":
