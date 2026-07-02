@@ -4,7 +4,7 @@ import logging
 from vkbottle.bot import Bot, Message
 
 from app.bot.access import ACCESS_DENIED_TEXT, ADMIN_ONLY_TEXT, is_admin, is_allowed
-from app.bot.formatters import HELP_TEXT, format_search_results, format_stats
+from app.bot.formatters import EMPTY_DATABASE_TEXT, HELP_TEXT, format_search_results, format_stats
 from app.bot.keyboards import (
     BTN_BY_GOAL,
     BTN_BY_NICHE,
@@ -80,6 +80,10 @@ def setup_handlers(
             return
 
         if text == BTN_BY_NICHE:
+            if repository.count() == 0:
+                await message.answer(EMPTY_DATABASE_TEXT, keyboard=main_menu_keyboard())
+                return
+
             set_state(user_id, WAITING_NICHE_QUERY)
             niches = _top_option_names(repository.top_values("niche", limit=8), DEFAULT_NICHES)
             await message.answer(
@@ -89,11 +93,19 @@ def setup_handlers(
             return
 
         if text == BTN_BY_TOOL:
+            if repository.count() == 0:
+                await message.answer(EMPTY_DATABASE_TEXT, keyboard=main_menu_keyboard())
+                return
+
             set_state(user_id, WAITING_TOOL_QUERY)
             await message.answer("Выбери инструмент или напиши свой:", keyboard=options_keyboard(TOOL_OPTIONS))
             return
 
         if text == BTN_BY_GOAL:
+            if repository.count() == 0:
+                await message.answer(EMPTY_DATABASE_TEXT, keyboard=main_menu_keyboard())
+                return
+
             set_state(user_id, WAITING_GOAL_QUERY)
             await message.answer("Выбери цель или напиши свою:", keyboard=options_keyboard(GOAL_OPTIONS))
             return
@@ -158,6 +170,10 @@ async def _send_search_results(
     query: str,
     field: str | None = None,
 ) -> None:
+    if search_service.repository.count() == 0:
+        await message.answer(EMPTY_DATABASE_TEXT, keyboard=main_menu_keyboard())
+        return
+
     results = search_service.search(query, limit=5, field=field)
     await message.answer(format_search_results(results), keyboard=main_menu_keyboard())
 

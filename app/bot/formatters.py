@@ -3,6 +3,13 @@ from app.cases.search import SearchResult
 from app.cases.use_rules import sales_tip
 
 
+EMPTY_DATABASE_TEXT = (
+    "База кейсов пока пустая.\n\n"
+    "Положи Excel-файл в data/cases.xlsx и нажми «🔄 Обновить базу» под админом. "
+    "В Docker папка data на сервере должна монтироваться в контейнер как /app/data."
+)
+
+
 def format_case(case: CaseItem, index: int) -> str:
     title = " — ".join(part for part in (case.project, case.title) if part)
     lines = [f"{index}. {title or 'Без названия'}"]
