@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import logging
 
-import pandas as pd
+from openpyxl import load_workbook
 
 from app.cases.models import CaseItem
 from app.cases.repository import CaseRepository
@@ -36,13 +36,20 @@ def import_cases_from_excel(xlsx_path: Path, repository: CaseRepository) -> Impo
     if not xlsx_path.exists():
         raise FileNotFoundError(f"Excel-файл не найден: {xlsx_path}")
 
-    sheets = pd.read_excel(xlsx_path, sheet_name=None, dtype=object)
+    workbook = load_workbook(xlsx_path, read_only=True, data_only=True)
     cases: list[CaseItem] = []
     seen_keys: set[tuple[str, str, str]] = set()
 
-    for sheet_name, frame in sheets.items():
-        column_map = _build_column_map(frame.columns)
-        for _, row in frame.iterrows():
+    for worksheet in workbook.worksheets:
+        sheet_name = worksheet.title
+        rows = worksheet.iter_rows(values_only=True)
+        try:
+            headers = next(rows)
+        except StopIteration:
+            continue
+
+        column_map = _build_column_map(headers)
+        for row in rows:
             case = _row_to_case(sheet_name, row, column_map)
             if not _has_any_data(case):
                 continue
@@ -59,25 +66,28 @@ def import_cases_from_excel(xlsx_path: Path, repository: CaseRepository) -> Impo
 
     repository.replace_all(cases)
     logger.info("Импортировано кейсов: %s", len(cases))
-    return ImportSummary(imported_count=len(cases), source_sheets=list(sheets.keys()))
+    return ImportSummary(imported_count=len(cases), source_sheets=workbook.sheetnames)
 
 
 def _build_column_map(columns: list[object]) -> dict[str, object]:
-    normalized_to_original = {normalize_column_name(column): column for column in columns}
-    column_map: dict[str, object] = {}
+    column_map: dict[str, int] = {}
 
-    for field_name, aliases in COLUMN_ALIASES.items():
-        for alias in aliases:
-            normalized_alias = normalize_column_name(alias)
-            if normalized_alias in normalized_to_original:
-                column_map[field_name] = normalized_to_original[normalized_alias]
+    for index, column in enumerate(columns):
+        normalized_column = normalize_column_name(column)
+        if not normalized_column:
+            continue
+
+        for field_name, aliases in COLUMN_ALIASES.items():
+            normalized_aliases = {normalize_column_name(alias) for alias in aliases}
+            if normalized_column in normalized_aliases and field_name not in column_map:
+                column_map[field_name] = index
                 break
 
     return column_map
 
 
-def _row_to_case(sheet_name: str, row: pd.Series, column_map: dict[str, object]) -> CaseItem:
-    values = {field: _safe_cell(row.get(column)) for field, column in column_map.items()}
+def _row_to_case(sheet_name: str, row: tuple[object, ...], column_map: dict[str, int]) -> CaseItem:
+    values = {field: _safe_cell(_row_value(row, index)) for field, index in column_map.items()}
     title = values.get("title", "")
     if not title:
         title = values.get("project", "") or values.get("case_url", "") or "Без названия"
@@ -113,9 +123,15 @@ def _row_to_case(sheet_name: str, row: pd.Series, column_map: dict[str, object])
 
 
 def _safe_cell(value: object) -> str:
-    if pd.isna(value):
+    if value is None:
         return ""
     return str(value).strip()
+
+
+def _row_value(row: tuple[object, ...], index: int) -> object:
+    if index >= len(row):
+        return None
+    return row[index]
 
 
 def _has_any_data(case: CaseItem) -> bool:
