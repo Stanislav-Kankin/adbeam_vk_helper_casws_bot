@@ -1,0 +1,15 @@
+.git
+.codex
+.agents
+.env
+.venv
+venv
+env
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+*.pyc
+data/*.db
+data/*.db-*
+data/cases.xlsx

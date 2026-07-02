@@ -1,0 +1,6 @@
+vkbottle==4.10.0
+python-dotenv==1.0.1
+pandas==2.2.2
+openpyxl==3.1.5
+rapidfuzz==3.9.6
+pytest==8.3.2
