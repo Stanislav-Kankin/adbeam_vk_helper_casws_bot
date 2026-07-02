@@ -209,7 +209,7 @@ tempCodeRunnerFile.py
 # Project data
 data/*.db
 data/*.db-*
-data/cases.xlsx
+
 
 # PyPI configuration file
 .pypirc
